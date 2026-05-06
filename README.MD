@@ -20,5 +20,5 @@ Nombres: Gabriel López, Gabriel Murillo
 
 # Explicación de implementación
 
-# Evidencias
+# Diagrama de flujo
 

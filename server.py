@@ -43,21 +43,23 @@ def handle_chat_message(data):
     room = data.get('room', 'General')
     message_content = data.get('message', '')
     msg_id = data.get('id', '')
-    ttl = data.get('ttl', 0)
     
     # Log genérico en servidor (No expone contenido, evita captura)
-    print(f"Mensaje temporal de {ttl}s transferido en sala {room}.")
+    print(f"Mensaje temporal transferido en sala {room}.")
     
+    # EMITIR AL RESTO DE LA SALA SIN TTL AÚN, el TTL inicia con la lectura
     emit('chat_message', 
         {'id': msg_id, 'username': username,
-         'message': message_content, 'ttl': ttl,
+         'message': message_content,
          'timestamp': datetime.now().strftime('%H:%M:%S')},
         to=room)
 
 @socketio.on('message_read')
 def handle_message_read(data):
     room = data.get('room', 'General')
-    emit('message_read', {'id': data.get('id'), 'reader': usuarios.get(request.sid)}, to=room, include_self=False)
+    msg_id = data.get('id')
+    # Cuando alguien confirma lectura, emitimos con el TTL para que inicie la destrucción
+    emit('message_read', {'id': msg_id, 'reader': usuarios.get(request.sid), 'ttl': 60}, to=room, include_self=True)
 
 @socketio.on('disconnect')
 def handle_disconnect():

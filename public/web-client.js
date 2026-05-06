@@ -68,6 +68,36 @@ class ChatApp extends HTMLElement {
                 checkEl.textContent = "✓✓"; // Doble check
                 checkEl.style.color = "#34b7f1"; // Color azul (leído)
             }
+            
+            // Iniciar cuenta regresiva SOLAMENTE cuando recibimos lectura
+            const msgDiv = this.shadowRoot.getElementById(`msg-${data.id}`);
+            if (msgDiv && !msgDiv.dataset.started) {
+                msgDiv.dataset.started = 'true';
+                
+                let timeLeft = data.ttl || 60; // 60 segundos por defecto del servidor
+                
+                // Mostrar o crear el timer en el HTML
+                let timerSpan = msgDiv.querySelector('.countdown');
+                if (!timerSpan) {
+                    const footer = msgDiv.querySelector('.msg-footer');
+                    if (footer) {
+                        footer.insertAdjacentHTML('afterbegin', `<span class="timer">⏱ <span class="countdown">${timeLeft}</span>s</span>`);
+                        timerSpan = msgDiv.querySelector('.countdown');
+                    }
+                }
+                
+                const intervalId = setInterval(() => {
+                    timeLeft--;
+                    if (timerSpan) timerSpan.textContent = timeLeft;
+                    
+                    if (timeLeft <= 0) {
+                        clearInterval(intervalId);
+                        if (msgDiv.parentNode) {
+                            msgDiv.remove();
+                        }
+                    }
+                }, 1000);
+            }
         });
 
         this.socket.on('user_list', (data) => {
@@ -97,11 +127,9 @@ class ChatApp extends HTMLElement {
 
         const sendBtn = shadow.getElementById('send-btn');
         const messageInput = shadow.getElementById('message-input');
-        const ttlSelect = shadow.getElementById('ttl-select');
 
         const sendMessage = () => {
             const message = messageInput.value.trim();
-            const ttl = parseInt(ttlSelect.value, 10);
             const msgId = Date.now().toString() + Math.floor(Math.random()*1000); // Generar ID único
             
             if (message === '/exit') {
@@ -120,7 +148,8 @@ class ChatApp extends HTMLElement {
             }
 
             if (message) {
-                this.socket.emit('chat_message', { id: msgId, message, ttl, room: this.room });
+                // Ya no pasamos TTL, el servidor dictamina que será 1 minuto
+                this.socket.emit('chat_message', { id: msgId, message, room: this.room });
                 messageInput.value = '';
             }
         };
@@ -167,8 +196,31 @@ class ChatApp extends HTMLElement {
             if (isOwn) {
                 msgDiv.classList.add('own');
             } else {
-                // Notificar al servidor que he leído el mensaje
-                this.socket.emit('message_read', { id: data.id, room: this.room });
+                // Observador para verificar si el usuario ve el mensaje en pantalla
+                const observer = new IntersectionObserver((entries) => {
+                    entries.forEach(entry => {
+                        if (entry.isIntersecting) {
+                            const markAsRead = () => {
+                                this.socket.emit('message_read', { id: data.id, room: this.room });
+                                observer.disconnect();
+                            };
+                            
+                            // Si el documento tiene foco, marcar como leído. Caso contrario, esperar al foco.
+                            if (document.hasFocus()) {
+                                markAsRead();
+                            } else {
+                                const focusHandler = () => {
+                                    markAsRead();
+                                    window.removeEventListener('focus', focusHandler);
+                                };
+                                window.addEventListener('focus', focusHandler);
+                            }
+                        }
+                    });
+                }, { root: messagesContainer });
+                
+                // Iniciar la observación del mensaje
+                requestAnimationFrame(() => observer.observe(msgDiv));
             }
             
             // Construir el contenido del mensaje
@@ -176,27 +228,11 @@ class ChatApp extends HTMLElement {
                 <span class="meta">${data.timestamp || new Date().toLocaleTimeString()} - ${isOwn ? 'Tú' : data.username}:</span> 
                 ${data.message}
                 <div class="msg-footer">
-                    ${data.ttl > 0 ? `<span class="timer">⏱ <span class="countdown">${data.ttl}</span>s</span>` : ''}
                     ${isOwn ? `<span id="check-${data.id}" class="check">✓</span>` : ''}
                 </div>
             `;
             
-            // Lógica de mensaje temporal
-            if (data.ttl > 0) {
-                let timeLeft = data.ttl;
-                const timerSpan = msgDiv.querySelector('.countdown');
-                const intervalId = setInterval(() => {
-                    timeLeft--;
-                    if (timerSpan) timerSpan.textContent = timeLeft;
-                    
-                    if (timeLeft <= 0) {
-                        clearInterval(intervalId);
-                        if (msgDiv.parentNode) {
-                            msgDiv.remove();
-                        }
-                    }
-                }, 1000);
-            }
+            // Ya no disparamos el TTL y eliminacion al llegar el chat_message. Esperamos el message_read.
         }
 
         messagesContainer.appendChild(msgDiv);
@@ -349,7 +385,8 @@ class ChatApp extends HTMLElement {
                 <div id="login-screen">
                     <h2>Bienvenido al Chat Privado</h2>
                     <input type="text" id="username-input" placeholder="Nombre de usuario" />
-                    <input type="text" id="room-input" placeholder="Código de la Sala" />
+                    <!-- Input del código de la sala que se muestra en la UI -->
+                    <input type="text" id="room-input" placeholder="Código de la Sala (ej. 1234)" />
                     <button id="login-btn">Entrar</button>
                     <p id="login-error" style="color: red; display: none; margin-top: 10px; font-size: 14px; text-align: center; font-weight: bold;"></p>
                 </div>
@@ -360,11 +397,7 @@ class ChatApp extends HTMLElement {
                     <div id="messages"></div>
                     
                     <div class="input-area">
-                        <select id="ttl-select" title="Tiempo de expiración">
-                            <option value="10">10s</option>
-                            <option value="60">1 min</option>
-                            <option value="300">5 min</option>
-                        </select>
+                        <!-- Selector de TTL eliminado, el servidor lo controla -->
                         <input type="text" id="message-input" placeholder="Escribe tu mensaje temporal..." />
                         <button id="send-btn">Enviar</button>
                     </div>
