@@ -236,7 +236,9 @@ class ChatApp extends HTMLElement {
         }
 
         messagesContainer.appendChild(msgDiv);
-        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        requestAnimationFrame(() => {
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        });
     }
 
     render() {
@@ -264,6 +266,7 @@ class ChatApp extends HTMLElement {
                     display: flex;
                     flex-direction: column;
                     background: #f9f9f9;
+                    min-height: 0;
                 }
                 #login-screen {
                     flex: 1;
@@ -293,6 +296,7 @@ class ChatApp extends HTMLElement {
                     display: none;
                     flex-direction: column;
                     flex: 1;
+                    min-height: 0;
                 }
                 #messages {
                     flex: 1;
@@ -301,6 +305,24 @@ class ChatApp extends HTMLElement {
                     display: flex;
                     flex-direction: column;
                     gap: 10px;
+                    min_height: 0;
+                }
+                
+                #messages::-webkit-scrollbar {
+                    width: 6px;
+                }
+
+                #messages::-webkit-scrollbar-track {
+                    background: #f1f1f1;
+                }
+
+                #messages::-webkit-scrollbar-thumb {
+                    background: #ccc;
+                    border-radius: 10px;
+                }
+
+                #messages::-webkit-scrollbar-thumb:hover {
+                    background: #0078d4;
                 }
                 .message {
                     padding: 8px 12px;

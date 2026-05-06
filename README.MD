@@ -15,9 +15,25 @@
     * Lista de usuarios en la sala  
 
 # Instrucciones de ejecución
-1. Inicializar servidor ejecutando el comando **python server.py**
-2. Inicializar servidor front ejecutando **node main.js**
+## Dependencias del computador instaladas
+* Tener python 3.x.x o una versi'on mayor
+* Tener node 25 o mayor instalado
+* Contar con un espacio de programación
+## Pasos para ejecución del servicio
+1. Obtener el código principal de github con el comando **git clone https://github.com/gamurigm/practica3** en una carpeta de preferencia
+2. En la carpeta parcial 3 ejecutar lo siguiente:
+3. Inicializar entorno virtual con **venv/Scripts/Activate**
+4. Instalar dependencias del servidor con **pip install flask flask_socketio flask_cors datetime eventlt** 
+5. Instalar dependencias del servicio local web del chat con **npm install**
+6. Inicializar servidor ejecutando el comando **python server.py**
+7. Inicializar servidor front ejecutando **node main.js**
+8. Utilizar el chat a su gusto
+## Pasos para ejecución del aplicativo
 
+1. En el servicio local http://localhost:3030 para utilizar el aplicativo
+2. Colocar en el fomrulario un nickname y el nombre de la sala, si es el primer usuario, solo coloque cualquier nombre y se generara el nombre automaticamente
+3. Escriba en el chat
+4. Para salir, escribir "/exit para salir del chat"
 # Explicación de implementación
 
 ## Cambios realizados respecto a la versión original
