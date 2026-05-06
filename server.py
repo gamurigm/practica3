@@ -22,20 +22,16 @@ def handle_connect():
 
 @socketio.on('set_username')
 def handle_set_username(data):
-    username = data.get('username')
+    username = data.get('username', 'Anonimo')
     room = data.get('room', 'General')
     
-    if not username or username.strip() == "":
-        emit('login_error', {'message': 'El nombre de usuario es obligatorio.'})
-        return
-        
     if username in usuarios.values():
         emit('login_error', {'message': 'El nombre de usuario ya está en uso. Por favor, elige otro.'})
         return
         
     usuarios[request.sid] = username
+    print(f'Un usuario {username} se conecto a la sala {room}') # Log protegido
     join_room(room)
-    print(f'El usuario {username} se ha unido a la sala {room}') # Log con nombre real
     
     emit('login_success', {'username': username, 'room': room})
     emit('user_joined', {'username': username}, to=room, include_self=False)
