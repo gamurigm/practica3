@@ -196,8 +196,31 @@ class ChatApp extends HTMLElement {
             if (isOwn) {
                 msgDiv.classList.add('own');
             } else {
-                // Notificar al servidor que he leído el mensaje
-                this.socket.emit('message_read', { id: data.id, room: this.room });
+                // Observador para verificar si el usuario ve el mensaje en pantalla
+                const observer = new IntersectionObserver((entries) => {
+                    entries.forEach(entry => {
+                        if (entry.isIntersecting) {
+                            const markAsRead = () => {
+                                this.socket.emit('message_read', { id: data.id, room: this.room });
+                                observer.disconnect();
+                            };
+                            
+                            // Si el documento tiene foco, marcar como leído. Caso contrario, esperar al foco.
+                            if (document.hasFocus()) {
+                                markAsRead();
+                            } else {
+                                const focusHandler = () => {
+                                    markAsRead();
+                                    window.removeEventListener('focus', focusHandler);
+                                };
+                                window.addEventListener('focus', focusHandler);
+                            }
+                        }
+                    });
+                }, { root: messagesContainer });
+                
+                // Iniciar la observación del mensaje
+                requestAnimationFrame(() => observer.observe(msgDiv));
             }
             
             // Construir el contenido del mensaje
