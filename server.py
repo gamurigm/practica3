@@ -30,7 +30,7 @@ def handle_set_username(data):
         return
         
     usuarios[request.sid] = username
-    print(f'Un usuario se ha conectado de forma {username} a la sala {room}') # Log protegido
+    print(f'Un usuario {username} se conecto a la sala {room}') # Log protegido
     join_room(room)
     
     emit('login_success', {'username': username, 'room': room})
