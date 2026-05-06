@@ -43,14 +43,14 @@ def handle_chat_message(data):
     room = data.get('room', 'General')
     message_content = data.get('message', '')
     msg_id = data.get('id', '')
-    ttl = data.get('ttl', 0)
     
     # Log genérico en servidor (No expone contenido, evita captura)
-    print(f"Mensaje temporal de {ttl}s transferido en sala {room}.")
+    print(f"Mensaje temporal transferido en sala {room}.")
     
+    # EMITIR AL RESTO DE LA SALA con temporalidad impuesta por el servidor
     emit('chat_message', 
         {'id': msg_id, 'username': username,
-         'message': message_content, 'ttl': ttl,
+         'message': message_content, 'ttl': 60, # TTL FIJO EN EL SERVIDOR (1 minuto)
          'timestamp': datetime.now().strftime('%H:%M:%S')},
         to=room)
 

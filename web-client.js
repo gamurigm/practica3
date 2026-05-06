@@ -97,11 +97,9 @@ class ChatApp extends HTMLElement {
 
         const sendBtn = shadow.getElementById('send-btn');
         const messageInput = shadow.getElementById('message-input');
-        const ttlSelect = shadow.getElementById('ttl-select');
 
         const sendMessage = () => {
             const message = messageInput.value.trim();
-            const ttl = parseInt(ttlSelect.value, 10);
             const msgId = Date.now().toString() + Math.floor(Math.random()*1000); // Generar ID único
             
             if (message === '/exit') {
@@ -120,7 +118,8 @@ class ChatApp extends HTMLElement {
             }
 
             if (message) {
-                this.socket.emit('chat_message', { id: msgId, message, ttl, room: this.room });
+                // Ya no pasamos TTL, el servidor dictamina que será 1 minuto
+                this.socket.emit('chat_message', { id: msgId, message, room: this.room });
                 messageInput.value = '';
             }
         };
@@ -360,11 +359,7 @@ class ChatApp extends HTMLElement {
                     <div id="messages"></div>
                     
                     <div class="input-area">
-                        <select id="ttl-select" title="Tiempo de expiración">
-                            <option value="10">10s</option>
-                            <option value="60">1 min</option>
-                            <option value="300">5 min</option>
-                        </select>
+                        <!-- Selector de TTL eliminado, el servidor lo controla -->
                         <input type="text" id="message-input" placeholder="Escribe tu mensaje temporal..." />
                         <button id="send-btn">Enviar</button>
                     </div>
