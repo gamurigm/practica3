@@ -13,17 +13,17 @@ const rl = readLine.createInterface({
     output: process.stdout
 })
 
-
 let username = '';
+let room = '';
 
 const askUsername = () => {
-    return new Promise((resolve) => {
-        rl.question('Ingresa tu nombre de usuario: ', (name) => {
-            resolve(name.trim())
-            username = name;
-            socket.emit('set_username', { username });
-            console.log(`Bienvenido ${username}`);
-            resolve();
+    rl.question('Ingresa tu nombre de usuario: ', (name) => {
+        username = name.trim();
+        if (!username) return askUsername();
+        
+        rl.question('Ingresa el nombre de la sala (Ej. General): ', (r) => {
+            room = r.trim() || 'General';
+            socket.emit('set_username', { username, room });
         });
     });
 }
@@ -34,46 +34,71 @@ const sendMessage = (message) => {
         socket.disconnect();
         rl.close();
         process.exit(0);
-
     }
-    socket.emit('chat_message', { username, message, timestamp: new Date().toLocaleTimeString() });
+    const msgId = Date.now().toString() + Math.floor(Math.random() * 1000);
+    socket.emit('chat_message', { id: msgId, message, room });
 }
 
 const displayMessage = (data, isOwn = false) => {
     const prefix = isOwn ? 'Tú' : data.username;
-    const alignment = isOwn ? 'right' : 'left';
-    console.log(`${data.timestamp} - ${prefix}: ${data.message}`);
+    console.log(`\n${data.timestamp} - ${prefix}: ${data.message}${isOwn ? ' [✓]' : ''}`);
 }
-
-
-
 
 socket.on('connect', () => {
     console.log('Conectado al servidor');
-    askUsername().then((name) => {
-        username = name
-    });
-    console.log(`Bienvenido ${username}, escribe tu mensaje ó /exit para salir`);
+    askUsername();
+})
+
+socket.on('login_error', (data) => {
+    console.log(`Error: ${data.message}`);
+    askUsername();
+});
+
+socket.on('login_success', (data) => {
+    console.log(`\n==========================================`);
+    console.log(`Bienvenido ${data.username} a la sala [${data.room}]`);
+    console.log(`Escribe tu mensaje ó /exit para salir`);
+    console.log(`==========================================\n`);
+    rl.prompt();
+});
+
+socket.on('user_joined', (data) => {
+    console.log(`\n[Info] Usuario ${data.username} se ha unido a la sala`);
     rl.prompt();
 })
 
-socket.on('user_joined', (data) => {
-    console.log(`Usuario ${data.username} se ha unido al chat`);
-})
-
 socket.on('user_left', (data) => {
-    console.log(`Usuario ${data.username} ha abandonado el chat`);
+    console.log(`\n[Info] Usuario ${data.username} ha abandonado la sala`);
+    rl.prompt();
 })
 
 socket.on('user_list', (data) => {
-    console.log(`Usuarios en el chat: ${data.usuarios.join(', ') || 'Sólo tú'}`);
+    console.log(`\n[Info] Usuarios en la sala: ${data.usuarios.join(', ') || 'Sólo tú'}`);
+    rl.prompt();
 })
 
 socket.on('chat_message', (data) => {
     const isOwn = data.username === username;
     displayMessage(data, isOwn);
+    
+    if (!isOwn) {
+        // En un cliente de consola, asumimos lectura automática cuando se imprime en pantalla
+        socket.emit('message_read', { id: data.id, room: room });
+    }
     rl.prompt();
 })
+
+socket.on('message_read', (data) => {
+    // Mostramos la confirmación de lectura y activamos el borrado virtual
+    const shortId = data.id.toString().substring(data.id.length - 4);
+    console.log(`\n[✓✓] Confirmación: El mensaje (id:${shortId}) fue leído. Autodestrucción en ${data.ttl || 60}s...`);
+    rl.prompt();
+    
+    setTimeout(() => {
+        console.log(`\n[🗑] El mensaje (id:${shortId}) ha expirado y se destruyó.`);
+        rl.prompt();
+    }, (data.ttl || 60) * 1000);
+});
 
 socket.on('disconnect', () => {
     console.log('Desconectado del servidor');
@@ -82,9 +107,11 @@ socket.on('disconnect', () => {
 })
 
 rl.on('line', (input) => {
-    if (input.trim())
+    if (input.trim()) {
         sendMessage(input.trim());
-    rl.prompt();
+    } else {
+        rl.prompt();
+    }
 }).on('close', () => {
     console.log('Desconectando...');
     socket.disconnect();
