@@ -203,19 +203,22 @@ flowchart TD
     D -- No --> E[Mostrar Error] --> B
     D -- Si --> F[Unirse a Sala y Cargar Interfaz]
     F --> G[Esperar Mensajes o Entrada]
-    G --> H[Usuario envia mensaje]
-    H --> I[Emitir chat_message]
+    G --> H[Usuario elige TTL y envia mensaje]
+    H --> I[Emitir chat_message con TTL]
     I --> J[Servidor guarda en historial y difunde]
     J --> G
     G --> K[Otro usuario recibe mensaje]
     K --> L{"Mensaje visible en pantalla?"}
     L -- Si --> M[Emitir message_read]
-    M --> N[Servidor inicia TTL 60s]
-    N --> O[Difundir confirmacion de lectura]
-    O --> P[Iniciar cuenta regresiva en cliente]
-    P --> Q{"Tiempo agotado?"}
-    Q -- Si --> R[Eliminar mensaje de UI y Servidor]
-    R --> G
+    M --> N[Servidor añade usuario a 'leido_por']
+    N --> O{"¿Es el primer lector?"}
+    O -- Si --> P[Iniciar purga programada en Servidor]
+    O -- No --> Q
+    P --> Q[Difundir message_read con lista de lectores]
+    Q --> R[Iniciar cuenta regresiva INDIVIDUAL en el cliente que leyó]
+    R --> S{"¿Tiempo TTL agotado?"}
+    S -- Si --> T[Eliminar mensaje de la UI local]
+    T --> G
 ```
 
 ## Flujo Detallado del Web Client (web-client.js)
@@ -231,24 +234,24 @@ sequenceDiagram
     S-->>C: login_success
     C->>U: Mostrar chat screen
     
-    U->>C: Escribe mensaje
-    C->>S: emit(chat_message)
+    U->>C: Escribe mensaje y selecciona TTL
+    C->>S: emit(chat_message, {ttl})
     S-->>C: chat_message (broadcast sala)
     C->>U: Mostrar mensaje con ✓
     
     U->>C: Ve mensaje (otro usuario)
     C->>C: IntersectionObserver detecta visibilidad
     C->>S: emit(message_read)
-    S-->>C: message_read (TTL=60s)
-    C->>U: ✓✓ + countdown 60s
+    S-->>C: message_read (leido_por, ttl)
+    C->>U: Mostrar "Leído por: X" + iniciar countdown individual
     
     loop Cada segundo
         C->>C: countdown--
-        C->>U: Actualizar timer
+        C->>U: Actualizar timer en pantalla
     end
     
     C->>C: countdown=0
-    C->>U: Eliminar mensaje
+    C->>U: Eliminar mensaje del DOM local
 ```
 
 ## Flujo Detallado del Server (server.py)
@@ -267,19 +270,22 @@ sequenceDiagram
     S->>S: join_room
     S-->>C: login_success, user_joined, user_list
     
-    C->>S: emit(chat_message)
+    C->>S: emit(chat_message, ttl)
     S->>S: handle_chat_message()
-    S->>S: Guardar en historial_salas[room]
+    S->>S: Guardar en historial_salas[room] con leido_por=[]
     S-->>C: chat_message (broadcast sala)
     
     C->>S: emit(message_read)
     S->>S: handle_message_read()
-    S->>S: start_background_task(purgar_mensaje)
-    S-->>C: message_read (TTL=60s)
+    S->>S: Añadir usuario a leido_por
+    alt Es el primer lector
+        S->>S: start_background_task(purgar_mensaje)
+    end
+    S-->>C: message_read (leido_por, ttl)
     
-    S->>S: sleep(60s)
+    S->>S: sleep(ttl)
     S->>S: purgar_mensaje()
-    S->>S: Eliminar mensaje de historial
+    S->>S: Eliminar mensaje de historial (RAM)
     
     C->>S: disconnect
     S->>S: handle_disconnect()
