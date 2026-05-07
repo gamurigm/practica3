@@ -15,25 +15,49 @@
     * Lista de usuarios en la sala  
 
 # Instrucciones de ejecución
-## Dependencias del computador instaladas
-* Tener python 3.x.x o una versi'on mayor
-* Tener node 25 o mayor instalado
-* Contar con un espacio de programación
-## Pasos para ejecución del servicio
-1. Obtener el código principal de github con el comando **git clone https://github.com/gamurigm/practica3** en una carpeta de preferencia
-2. En la carpeta parcial 3 ejecutar lo siguiente:
-3. Inicializar entorno virtual con **venv/Scripts/Activate**
-4. Instalar dependencias del servidor con **pip install flask flask_socketio flask_cors datetime eventlt** 
-5. Instalar dependencias del servicio local web del chat con **npm install**
-6. Inicializar servidor ejecutando el comando **python server.py**
-7. Inicializar servidor front ejecutando **node main.js**
-8. Utilizar el chat a su gusto
-## Pasos para ejecución del aplicativo
 
-1. En el servicio local http://localhost:3030 para utilizar el aplicativo
-2. Colocar en el fomrulario un nickname y el nombre de la sala, si es el primer usuario, solo coloque cualquier nombre y se generara el nombre automaticamente
-3. Escriba en el chat
-4. Para salir, escribir "/exit para salir del chat"
+## 1. Requisitos Previos
+* **Python 3.8** o superior.
+* **Node.js** v16 o superior.
+* Git instalado en el equipo.
+
+## 2. Descarga del Proyecto
+Clona el repositorio y entra a la carpeta principal:
+```bash
+git clone https://github.com/gamurigm/practica3
+cd practica3
+```
+
+## 3. Ejecución del Servidor Backend (Python)
+Abre una terminal en la carpeta del proyecto para iniciar el servicio de WebSockets:
+```bash
+# 1. (Opcional) Crea y activa un entorno virtual
+python -m venv venv
+venv\Scripts\activate  # En Windows
+
+# 2. Instala las dependencias de Python
+pip install flask flask_socketio flask_cors eventlet
+
+# 3. Levanta el servidor (correrá en el puerto 5001)
+python server.py
+```
+
+## 4. Ejecución del Cliente Frontend (Node.js)
+Abre **una segunda pestaña de terminal** en la misma carpeta para levantar la interfaz web:
+```bash
+# 1. Instala las dependencias del frontend
+npm install
+
+# 2. Levanta el servidor web estático (correrá en el puerto 3030)
+node main.js
+```
+
+## 5. Uso del Aplicativo
+1. Abre tu navegador web y dirígete a **`http://localhost:3030`**.
+2. **Login:** Ingresa tu *Nombre de Usuario* (obligatorio) y el *Código de Sala* a la que deseas unirte (ej. "1234"). Los mensajes solo se enviarán a quienes estén en tu misma sala.
+3. **Chat Seguro:** Escribe un mensaje y selecciona su tiempo de vida (TTL: 10s, 1min o 5min).
+4. **Autodestrucción:** Una vez enviado, el mensaje se destruirá automáticamente de la pantalla de cada participante una vez que transcurra el TTL (el tiempo empieza a correr de forma individual solo cuando el receptor lee el mensaje).
+5. **Salir:** Para desconectarte, cierra la pestaña o envía exactamente `/exit` en el chat.
 # Explicación de implementación
 
 ## Cambios realizados respecto a la versión original
