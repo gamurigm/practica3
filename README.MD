@@ -7,7 +7,7 @@
 * Chat en tiempo real
 * Implementación Web sockets
 * Confirmación de envio y recepción de mensajes
-* Mensajes temporales con tiempo de vida de 1 minuto
+* Mensajes temporales con tiempo de vida.
 * Implementación de seguridad por nombres y acceso por código de sala
 * Interfaz visual con:
     * Pantalla de ingreso
