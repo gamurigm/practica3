@@ -75,46 +75,36 @@ emit('chat_message', msg_data, to=room)
 
 ---
 
-### 3. TTL configurable iniciado en la lectura (`server.py` + `web-client.js`)
+### 3. TTL configurable e Individual por Cliente (`server.py` + `web-client.js`)
 
-**Antes:** No existía TTL. Los mensajes permanecían para siempre.
+**Antes:** No existía TTL o era global (el primer lector borraba el mensaje para todos).
 
-**Ahora:** El emisor elige el TTL (10s, 1min o 5min) desde un selector en la UI. El TTL se envía con el mensaje, el servidor lo guarda y lo usa al purgar. La cuenta regresiva empieza solo cuando el receptor lee el mensaje.
+**Ahora:** El emisor elige el TTL (10s, 1min o 5min) desde un selector en la UI. El TTL es **individual para cada cliente** (Opción A). La cuenta regresiva de destrucción empieza de forma independiente en la pantalla de cada receptor solo en el momento en que *ese receptor* lee el mensaje. El servidor purga su copia de seguridad tras la primera lectura para no mantener historial eterno.
 ```python
 # Servidor lee el TTL enviado por el cliente
-ttl = int(data.get('ttl', 60))  # 10, 60 o 300 segundos
-msg_data = { ..., 'ttl': ttl }
+ttl = int(data.get('ttl', 60))
 
-# Al recibir lectura, recupera el TTL del historial y purga con ese tiempo
-def purgar_mensaje(r_name, m_id, t):
-    socketio.sleep(t)  # Espera el tiempo exacto elegido por el emisor
-    historial_salas[r_name] = [m for m in historial_salas[r_name] if m.get('id') != m_id]
-
-socketio.start_background_task(purgar_mensaje, room, msg_id, ttl)
-emit('message_read', {'id': msg_id, 'ttl': ttl}, to=room)
+# El servidor purga la memoria tras la primera lectura
+if len(leido_por) == 1:
+    socketio.start_background_task(purgar_mensaje, room, msg_id, ttl)
+```
+```javascript
+// Cliente inicia temporizador SOLO cuando él lo lee, independiente del resto
+if (isOwn || data.leido_por.includes(this.username)) {
+    this.startLocalCountdown(msgDiv, data.ttl);
+}
 ```
 
 ---
 
-### 4. Detección de visibilidad con `IntersectionObserver` (`web-client.js`)
+### 4. Confirmación de Lectura Grupal y Visibilidad (`web-client.js`)
 
-**Antes:** No existía. El cliente no sabía si el mensaje fue visto realmente.
+**Antes:** El "doble check" no indicaba quién había leído en una sala con múltiples personas.
 
-**Ahora:** Se observa si el elemento del mensaje es visible en el viewport. Solo entonces se emite `message_read`, iniciando el TTL.
+**Ahora:** El servidor rastrea un arreglo `leido_por`. Se observa si el elemento del mensaje es visible (`IntersectionObserver`) y se emite la lectura. El remitente y los demás pueden ver exactamente quién ha leído el mensaje en la interfaz (`Leído por: Juan, Ana`).
 ```javascript
-const observer = new IntersectionObserver((entries) => {
-    entries.forEach(entry => {
-        if (entry.isIntersecting) {
-            // Solo marca como leído si la ventana tiene foco
-            if (document.hasFocus()) {
-                this.socket.emit('message_read', { id: data.id, room: this.room });
-                observer.disconnect();
-            }
-        }
-    });
-}, { root: messagesContainer });
-
-requestAnimationFrame(() => observer.observe(msgDiv));
+let readersSpan = msgDiv.querySelector('.readers');
+const readersText = `Leído por: ${data.leido_por.join(', ')}`;
 ```
 
 ---

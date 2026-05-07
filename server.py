@@ -62,7 +62,8 @@ def handle_chat_message(data):
         'id': msg_id, 'username': username,
         'message': message_content,
         'timestamp': datetime.now().strftime('%H:%M:%S'),
-        'ttl': ttl
+        'ttl': ttl,
+        'leido_por': []
     }
     
     if room not in historial_salas:
@@ -75,25 +76,33 @@ def handle_chat_message(data):
 def handle_message_read(data):
     room = data.get('room', 'General')
     msg_id = data.get('id')
+    reader = usuarios.get(request.sid)
     
-    # Recuperar el TTL original del mensaje desde el historial
+    # Recuperar el TTL original del mensaje y actualizar lectores
     ttl = 60
+    leido_por = []
     if room in historial_salas:
         for msg in historial_salas[room]:
             if msg.get('id') == msg_id:
                 ttl = int(msg.get('ttl', 60))
+                if reader and reader not in msg.get('leido_por', []):
+                    msg.setdefault('leido_por', []).append(reader)
+                leido_por = msg.get('leido_por', [])
                 break
     
-    def purgar_mensaje(r_name, m_id, t):
-        socketio.sleep(t)
-        if r_name in historial_salas:
-            historial_salas[r_name] = [m for m in historial_salas[r_name] if m.get('id') != m_id]
-            print(f"Mensaje purgado del historial tras {t}s.")
-            
-    socketio.start_background_task(purgar_mensaje, room, msg_id, ttl)
+    # El servidor inicia su temporizador de purga con la PRIMERA lectura
+    # para no guardar mensajes eternamente.
+    if len(leido_por) == 1:
+        def purgar_mensaje(r_name, m_id, t):
+            socketio.sleep(t)
+            if r_name in historial_salas:
+                historial_salas[r_name] = [m for m in historial_salas[r_name] if m.get('id') != m_id]
+                print(f"Mensaje purgado del historial tras {t}s.")
+                
+        socketio.start_background_task(purgar_mensaje, room, msg_id, ttl)
 
-    # Retransmitir confirmación con el TTL real a toda la sala
-    emit('message_read', {'id': msg_id, 'reader': usuarios.get(request.sid), 'ttl': ttl}, to=room, include_self=True)
+    # Retransmitir confirmación con la lista de lectores
+    emit('message_read', {'id': msg_id, 'leido_por': leido_por, 'ttl': ttl}, to=room)
 
 @socketio.on('disconnect')
 def handle_disconnect():

@@ -63,40 +63,35 @@ class ChatApp extends HTMLElement {
         });
 
         this.socket.on('message_read', (data) => {
-            const checkEl = this.shadowRoot.getElementById(`check-${data.id}`);
-            if (checkEl) {
-                checkEl.textContent = "✓✓"; // Doble check
-                checkEl.style.color = "#34b7f1"; // Color azul (leído)
-            }
-            
-            // Iniciar cuenta regresiva SOLAMENTE cuando recibimos lectura
             const msgDiv = this.shadowRoot.getElementById(`msg-${data.id}`);
-            if (msgDiv && !msgDiv.dataset.started) {
-                msgDiv.dataset.started = 'true';
-                
-                let timeLeft = data.ttl || 60; // 60 segundos por defecto del servidor
-                
-                // Mostrar o crear el timer en el HTML
-                let timerSpan = msgDiv.querySelector('.countdown');
-                if (!timerSpan) {
-                    const footer = msgDiv.querySelector('.msg-footer');
-                    if (footer) {
-                        footer.insertAdjacentHTML('afterbegin', `<span class="timer">⏱ <span class="countdown">${timeLeft}</span>s</span>`);
-                        timerSpan = msgDiv.querySelector('.countdown');
-                    }
+            if (!msgDiv) return;
+
+            const isOwn = msgDiv.classList.contains('own');
+
+            // Actualizar interfaz con lectores
+            if (isOwn) {
+                const checkEl = this.shadowRoot.getElementById(`check-${data.id}`);
+                if (checkEl) {
+                    checkEl.textContent = "✓✓";
+                    checkEl.style.color = "#34b7f1";
                 }
-                
-                const intervalId = setInterval(() => {
-                    timeLeft--;
-                    if (timerSpan) timerSpan.textContent = timeLeft;
-                    
-                    if (timeLeft <= 0) {
-                        clearInterval(intervalId);
-                        if (msgDiv.parentNode) {
-                            msgDiv.remove();
-                        }
-                    }
-                }, 1000);
+            }
+
+            let readersSpan = msgDiv.querySelector('.readers');
+            const readersText = `Leído por: ${data.leido_por.join(', ')}`;
+            if (!readersSpan) {
+                const footer = msgDiv.querySelector('.msg-footer');
+                if (footer) {
+                    footer.insertAdjacentHTML('afterbegin', `<span class="readers" style="font-size: 0.7em; color: #888; margin-right: 5px; align-self: center;">${readersText}</span>`);
+                }
+            } else {
+                readersSpan.textContent = readersText;
+            }
+
+            // Iniciar cuenta regresiva local SOLO si soy el emisor (en la primera lectura) 
+            // o si soy un receptor y yo fui quien lo leyó
+            if (isOwn || data.leido_por.includes(this.username)) {
+                this.startLocalCountdown(msgDiv, data.ttl);
             }
         });
 
@@ -108,6 +103,34 @@ class ChatApp extends HTMLElement {
         this.socket.on('chat_message', (data) => {
             this.addMessage(data);
         });
+    }
+
+    startLocalCountdown(msgDiv, ttl) {
+        if (msgDiv.dataset.started) return;
+        msgDiv.dataset.started = 'true';
+        
+        let timeLeft = ttl || 60;
+        let timerSpan = msgDiv.querySelector('.countdown');
+        
+        if (!timerSpan) {
+            const footer = msgDiv.querySelector('.msg-footer');
+            if (footer) {
+                footer.insertAdjacentHTML('afterbegin', `<span class="timer" style="margin-left: 5px;">⏱ <span class="countdown">${timeLeft}</span>s</span>`);
+                timerSpan = msgDiv.querySelector('.countdown');
+            }
+        }
+        
+        const intervalId = setInterval(() => {
+            timeLeft--;
+            if (timerSpan) timerSpan.textContent = timeLeft;
+            
+            if (timeLeft <= 0) {
+                clearInterval(intervalId);
+                if (msgDiv.parentNode) {
+                    msgDiv.remove();
+                }
+            }
+        }, 1000);
     }
 
     addEventListeners() {
@@ -203,6 +226,7 @@ class ChatApp extends HTMLElement {
                         if (entry.isIntersecting) {
                             const markAsRead = () => {
                                 this.socket.emit('message_read', { id: data.id, room: this.room });
+                                this.startLocalCountdown(msgDiv, data.ttl);
                                 observer.disconnect();
                             };
                             
