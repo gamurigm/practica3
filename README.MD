@@ -75,22 +75,23 @@ emit('chat_message', msg_data, to=room)
 
 ---
 
-### 3. TTL iniciado en la lectura, no en el envío (`server.py`)
+### 3. TTL configurable iniciado en la lectura (`server.py` + `web-client.js`)
 
 **Antes:** No existía TTL. Los mensajes permanecían para siempre.
 
-**Ahora:** El TTL de 60s se activa en el servidor solo cuando el destinatario confirma que leyó el mensaje. Se usa un hilo en segundo plano para purgar el mensaje del historial.
+**Ahora:** El emisor elige el TTL (10s, 1min o 5min) desde un selector en la UI. El TTL se envía con el mensaje, el servidor lo guarda y lo usa al purgar. La cuenta regresiva empieza solo cuando el receptor lee el mensaje.
 ```python
-@socketio.on('message_read')
-def handle_message_read(data):
-    def purgar_mensaje(r_name, m_id):
-        socketio.sleep(60)  # Espera 60 segundos
-        if r_name in historial_salas:
-            historial_salas[r_name] = [
-                m for m in historial_salas[r_name] if m.get('id') != m_id
-            ]
-    socketio.start_background_task(purgar_mensaje, room, msg_id)
-    emit('message_read', {'id': msg_id, 'ttl': 60}, to=room)
+# Servidor lee el TTL enviado por el cliente
+ttl = int(data.get('ttl', 60))  # 10, 60 o 300 segundos
+msg_data = { ..., 'ttl': ttl }
+
+# Al recibir lectura, recupera el TTL del historial y purga con ese tiempo
+def purgar_mensaje(r_name, m_id, t):
+    socketio.sleep(t)  # Espera el tiempo exacto elegido por el emisor
+    historial_salas[r_name] = [m for m in historial_salas[r_name] if m.get('id') != m_id]
+
+socketio.start_background_task(purgar_mensaje, room, msg_id, ttl)
+emit('message_read', {'id': msg_id, 'ttl': ttl}, to=room)
 ```
 
 ---
@@ -152,10 +153,30 @@ class ChatApp extends HTMLElement {
         this.socket = null;
         this.username = '';
         this.room = '';
-        this.render(); // Renderiza la UI dentro del shadow DOM
+        this.render();
     }
 }
 customElements.define('chat-app', ChatApp);
+```
+
+---
+
+### 7. Selector de TTL en la interfaz (`web-client.js`)
+
+**Antes:** No existía. El TTL estaba hardcodeado en 60s.
+
+**Ahora:** El emisor elige el tiempo de vida del mensaje antes de enviarlo mediante un `<select>` en la barra de chat. El valor se pasa directamente al servidor con cada mensaje.
+```javascript
+// UI: selector visible junto al input de texto
+<select id="ttl-select">
+    <option value="10">⏱ 10s</option>
+    <option value="60" selected>⏱ 1 min</option>
+    <option value="300">⏱ 5 min</option>
+</select>
+
+// JS: se lee el valor al enviar
+const ttl = parseInt(shadow.getElementById('ttl-select').value);
+this.socket.emit('chat_message', { id: msgId, message, room: this.room, ttl });
 ```
 
 
