@@ -1,6 +1,6 @@
 # Servidor Websocket con privacidad Avanzada
 
-**Estudiantes:** Gabriel Murillo, Gabriel López  
+**Estudiantes:** Gabriel López, Gabriel Murillo,  
 **Fecha:** 06 de Mayo de 2026
 
 ## Funcionalidades
