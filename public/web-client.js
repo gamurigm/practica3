@@ -330,7 +330,7 @@ class ChatApp extends HTMLElement {
                     display: flex;
                     flex-direction: column;
                     gap: 10px;
-                    min_height: 0;
+                    min-height: 0;
                 }
                 
                 #messages::-webkit-scrollbar {
