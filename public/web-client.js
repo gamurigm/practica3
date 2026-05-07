@@ -148,8 +148,9 @@ class ChatApp extends HTMLElement {
             }
 
             if (message) {
-                // Ya no pasamos TTL, el servidor dictamina que será 1 minuto
-                this.socket.emit('chat_message', { id: msgId, message, room: this.room });
+                const ttlSelect = shadow.getElementById('ttl-select');
+                const ttl = ttlSelect ? parseInt(ttlSelect.value) : 60;
+                this.socket.emit('chat_message', { id: msgId, message, room: this.room, ttl });
                 messageInput.value = '';
             }
         };
@@ -386,6 +387,15 @@ class ChatApp extends HTMLElement {
                     border-radius: 4px;
                     font-size: 14px;
                 }
+                .input-area select {
+                    padding: 10px 6px;
+                    border: 1px solid #ccc;
+                    border-radius: 4px;
+                    font-size: 13px;
+                    background: #f5f5f5;
+                    cursor: pointer;
+                    margin-right: 6px;
+                }
                 .input-area button {
                     margin-left: 10px;
                     padding: 10px 20px;
@@ -419,7 +429,11 @@ class ChatApp extends HTMLElement {
                     <div id="messages"></div>
                     
                     <div class="input-area">
-                        <!-- Selector de TTL eliminado, el servidor lo controla -->
+                        <select id="ttl-select" title="Tiempo de vida del mensaje">
+                            <option value="10">⏱ 10s</option>
+                            <option value="60" selected>⏱ 1 min</option>
+                            <option value="300">⏱ 5 min</option>
+                        </select>
                         <input type="text" id="message-input" placeholder="Escribe tu mensaje temporal..." />
                         <button id="send-btn">Enviar</button>
                     </div>

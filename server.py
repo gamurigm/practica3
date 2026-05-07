@@ -22,15 +22,19 @@ def handle_connect():
 
 @socketio.on('set_username')
 def handle_set_username(data):
-    username = data.get('username', 'Anonimo')
+    username = data.get('username', '').strip()
     room = data.get('room', 'General')
     
+    if not username:
+        emit('login_error', {'message': 'El nombre de usuario es obligatorio.'})
+        return
+        
     if username in usuarios.values():
         emit('login_error', {'message': 'El nombre de usuario ya está en uso. Por favor, elige otro.'})
         return
         
     usuarios[request.sid] = username
-    print(f'Un usuario {username} se conecto a la sala {room}') # Log protegido
+    print(f'El usuario {username} se unio a la sala {room}')
     join_room(room)
     
     emit('login_success', {'username': username, 'room': room})
@@ -50,21 +54,21 @@ def handle_chat_message(data):
     room = data.get('room', 'General')
     message_content = data.get('message', '')
     msg_id = data.get('id', '')
+    ttl = int(data.get('ttl', 60))  # TTL enviado por el cliente (10, 60 o 300)
     
-    # Log genérico en servidor (No expone contenido, evita captura)
     print(f"Mensaje temporal transferido en sala {room}.")
     
     msg_data = {
         'id': msg_id, 'username': username,
         'message': message_content,
-        'timestamp': datetime.now().strftime('%H:%M:%S')
+        'timestamp': datetime.now().strftime('%H:%M:%S'),
+        'ttl': ttl
     }
     
     if room not in historial_salas:
         historial_salas[room] = []
     historial_salas[room].append(msg_data)
     
-    # EMITIR AL RESTO DE LA SALA SIN TTL AÚN, el TTL inicia con la lectura
     emit('chat_message', msg_data, to=room)
 
 @socketio.on('message_read')
@@ -72,17 +76,24 @@ def handle_message_read(data):
     room = data.get('room', 'General')
     msg_id = data.get('id')
     
-    # Iniciar la cuenta regresiva en el servidor para borrarlo del historial (TTL = 60s)
-    def purgar_mensaje(r_name, m_id):
-        socketio.sleep(60)
+    # Recuperar el TTL original del mensaje desde el historial
+    ttl = 60
+    if room in historial_salas:
+        for msg in historial_salas[room]:
+            if msg.get('id') == msg_id:
+                ttl = int(msg.get('ttl', 60))
+                break
+    
+    def purgar_mensaje(r_name, m_id, t):
+        socketio.sleep(t)
         if r_name in historial_salas:
             historial_salas[r_name] = [m for m in historial_salas[r_name] if m.get('id') != m_id]
-            print(f"Mensaje purgado del historial del servidor tras 60s.")
+            print(f"Mensaje purgado del historial tras {t}s.")
             
-    socketio.start_background_task(purgar_mensaje, room, msg_id)
+    socketio.start_background_task(purgar_mensaje, room, msg_id, ttl)
 
-    # Cuando alguien confirma lectura, emitimos con el TTL para que inicie la destrucción
-    emit('message_read', {'id': msg_id, 'reader': usuarios.get(request.sid), 'ttl': 60}, to=room, include_self=True)
+    # Retransmitir confirmación con el TTL real a toda la sala
+    emit('message_read', {'id': msg_id, 'reader': usuarios.get(request.sid), 'ttl': ttl}, to=room, include_self=True)
 
 @socketio.on('disconnect')
 def handle_disconnect():
