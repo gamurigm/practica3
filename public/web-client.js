@@ -38,6 +38,7 @@ class ChatApp extends HTMLElement {
         });
 
         this.socket.on('login_success', (data) => {
+            console.log(`[CLIENTE] Login exitoso:`, data);
             this.username = data.username;
             this.room = data.room;
             const shadow = this.shadowRoot;
@@ -63,6 +64,7 @@ class ChatApp extends HTMLElement {
         });
 
         this.socket.on('message_read', (data) => {
+            console.log(`[CLIENTE] Mensaje leído:`, data);
             const msgDiv = this.shadowRoot.getElementById(`msg-${data.id}`);
             if (!msgDiv) return;
 
@@ -101,6 +103,7 @@ class ChatApp extends HTMLElement {
         });
 
         this.socket.on('chat_message', (data) => {
+            console.log(`[CLIENTE] Mensaje recibido:`, data);
             this.addMessage(data);
         });
     }
@@ -173,7 +176,11 @@ class ChatApp extends HTMLElement {
             if (message) {
                 const ttlSelect = shadow.getElementById('ttl-select');
                 const ttl = ttlSelect ? parseInt(ttlSelect.value) : 60;
-                this.socket.emit('chat_message', { id: msgId, message, room: this.room, ttl });
+                
+                const msgData = { id: msgId, message, room: this.room, ttl };
+                console.log(`[CLIENTE] Enviando mensaje:`, msgData);
+                this.socket.emit('chat_message', msgData);
+                
                 messageInput.value = '';
             }
         };
